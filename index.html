@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Overlay Multimedia</title>
+    <style>
+      html,
+      body {
+        cursor: none;
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        background-color: #00d900;
+      }
+
+      #drop-zone {
+        width: 100vw;
+        height: 100vh;
+        position: relative;
+      }
+
+      .draggable {
+        border: 10px solid transparent;
+        border-radius: 16px;
+        padding: 4px;
+        background-color: transparent;
+        position: absolute;
+        z-index: 10;
+        user-select: none;
+      }
+
+      .custom-cursor {
+        position: absolute;
+        width: 5px;
+        height: 5px;
+        background-color: #00a800;
+        border-radius: 50%;
+        pointer-events: none;
+        z-index: 9999;
+      }
+
+      .aspect-guide {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 1280px;
+        height: 720px;
+        pointer-events: none;
+        z-index: 1;
+      }
+
+      .aspect-guide::after,
+      .aspect-guide::before {
+        content: "";
+        position: absolute;
+        background-color: black;
+      }
+
+      .aspect-guide::after {
+        /* Borde derecho */
+        top: 0;
+        right: 0;
+        width: 2px;
+        height: 100%;
+      }
+
+      .aspect-guide::before {
+        /* Borde inferior */
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        height: 2px;
+      }
+
+      video,
+      img,
+      audio,
+      iframe {
+        user-select: none;
+        display: block;
+        cursor: none;
+      }
+
+      img {
+        pointer-events: none; /* No necesitan clics */
+      }
+
+      video,
+      audio,
+      iframe {
+        pointer-events: auto; /* Sí permiten interacción */
+      }
+    </style>
+  </head>
+  <body>
+    <div class="aspect-guide"></div>
+    <div id="drop-zone"></div>
+    <div class="custom-cursor" id="customCursor"></div>
+    <script src="/socket.io/socket.io.js"></script>
+<script>
+  const socket = io("https://bc14-2800-200-fdc0-c73-88c9-679f-6c22-8ee3.ngrok-free.app");
+
+  // Generar un id simple (puedes usar UUID si quieres)
+  function generateId() {
+    return Math.random().toString(36).substr(2, 9);
+  }
+
+  // Estado local, map id -> elemento DOM
+  const elementsMap = new Map();
+
+  // Cargar objetos cuando un nuevo usuario se conecta
+  socket.on("loadObjects", (objs) => {
+    objs.forEach((obj) => {
+      insertElementFromData(obj);
+    });
+  });
+
+  // Crear objeto al recibir evento
+  socket.on("createObject", (obj) => {
+    if (!elementsMap.has(obj.id)) {
+      insertElementFromData(obj);
+    }
+  });
+
+  // Mover objeto
+  socket.on("moveObject", ({ id, x, y }) => {
+    const el = elementsMap.get(id);
+    if (el) {
+      el.style.left = x + "px";
+      el.style.top = y + "px";
+    }
+  });
+
+  // Eliminar objeto
+  socket.on("removeObject", (id) => {
+    const el = elementsMap.get(id);
+    if (el) {
+      el.remove();
+      elementsMap.delete(id);
+    }
+  });
+
+  // Modificar insertElement para que acepte un objeto con datos
+  function insertElementFromData(obj) {
+    const wrapper = document.createElement("div");
+    wrapper.className = "draggable";
+    wrapper.style.left = obj.x + "px";
+    wrapper.style.top = obj.y + "px";
+    wrapper.dataset.id = obj.id;
+
+    let mediaElement;
+    if (obj.type === "image") {
+      mediaElement = document.createElement("img");
+      mediaElement.src = obj.src;
+    } else if (obj.type === "video") {
+      mediaElement = document.createElement("video");
+      mediaElement.src = obj.src;
+      mediaElement.controls = true;
+      mediaElement.autoplay = false;
+    } else if (obj.type === "audio") {
+      mediaElement = document.createElement("audio");
+      mediaElement.src = obj.src;
+      mediaElement.controls = true;
+      mediaElement.autoplay = true;
+    } else if (obj.type === "iframe") {
+      mediaElement = document.createElement("iframe");
+      mediaElement.src = obj.src;
+      mediaElement.width = obj.width || 560;
+      mediaElement.height = obj.height || 315;
+      mediaElement.allowFullscreen = true;
+    }
+    wrapper.appendChild(mediaElement);
+
+    makeDraggable(wrapper);
+
+    dropZone.appendChild(wrapper);
+    elementsMap.set(obj.id, wrapper);
+
+    // Borrar con doble click
+    wrapper.addEventListener("dblclick", () => {
+      socket.emit("removeObject", obj.id);
+      wrapper.remove();
+      elementsMap.delete(obj.id);
+    });
+  }
+
+  // Cuando se inserta un nuevo elemento con interacción local (drop o paste),
+  // debes emitir createObject al servidor
+  function insertElement(mediaElement, x, y, isResizable = false) {
+    const id = generateId();
+    const type = mediaElement.tagName.toLowerCase();
+
+    const obj = {
+      id,
+      x,
+      y,
+      type: type === "iframe" ? "iframe" : type, // normalizar
+      src: mediaElement.src || mediaElement.currentSrc || mediaElement.srcObject || "",
+      width: mediaElement.width || null,
+      height: mediaElement.height || null,
+    };
+
+    insertElementFromData(obj);
+
+    socket.emit("createObject", obj);
+  }
+
+  // Modificar makeDraggable para emitir moveObject
+  function makeDraggable(el) {
+    let isDragging = false,
+      offsetX = 0,
+      offsetY = 0;
+
+    el.addEventListener("mousedown", (e) => {
+      isDragging = true;
+      offsetX = e.offsetX;
+      offsetY = e.offsetY;
+      el.style.zIndex = parseInt(el.style.zIndex || 10) + 1;
+    });
+
+    window.addEventListener("mousemove", (e) => {
+      if (isDragging) {
+        const x = e.clientX - offsetX;
+        const y = e.clientY - offsetY;
+        el.style.left = x + "px";
+        el.style.top = y + "px";
+
+        // Emitir movimiento
+        const id = el.dataset.id;
+        socket.emit("moveObject", { id, x, y });
+      }
+    });
+
+    window.addEventListener("mouseup", () => (isDragging = false));
+  }
+</script>
+
+  </body>
+</html>

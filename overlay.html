@@ -93,147 +93,352 @@
     </style>
   </head>
   <body>
-    <div class="custom-cursor" id="customCursor"></div>
     <div class="aspect-guide"></div>
     <div id="drop-zone"></div>
-    <script src="/socket.io/socket.io.js"></script>
-<script>
-  const socket = io("https://bc14-2800-200-fdc0-c73-88c9-679f-6c22-8ee3.ngrok-free.app");
+    <div class="custom-cursor" id="customCursor"></div>
+    <script src="https://bc14-2800-200-fdc0-c73-88c9-679f-6c22-8ee3.ngrok-free.app/socket.io/socket.io.js"></script>
+    <script>
+      // cursor custom
+      const dropZone = document.getElementById("drop-zone");
+      const cursor = document.getElementById("customCursor");
+      let cursorX = 0,
+        cursorY = 0;
+      dropZone.addEventListener("dragover", (e) => e.preventDefault());
+      dropZone.addEventListener("mousemove", (e) => {
+        const rect = dropZone.getBoundingClientRect();
+        cursorX = e.clientX - rect.left;
+        cursorY = e.clientY - rect.top;
+        cursor.style.left = `${e.clientX - 2}px`;
+        cursor.style.top = `${e.clientY - 2}px`;
+      });
 
-  // Generar un id simple (puedes usar UUID si quieres)
-  function generateId() {
-    return Math.random().toString(36).substr(2, 9);
-  }
+      const socket = io(
+        "https://bc14-2800-200-fdc0-c73-88c9-679f-6c22-8ee3.ngrok-free.app"
+      );
 
-  // Estado local, map id -> elemento DOM
-  const elementsMap = new Map();
-
-  // Cargar objetos cuando un nuevo usuario se conecta
-  socket.on("loadObjects", (objs) => {
-    objs.forEach((obj) => {
-      insertElementFromData(obj);
-    });
-  });
-
-  // Crear objeto al recibir evento
-  socket.on("createObject", (obj) => {
-    if (!elementsMap.has(obj.id)) {
-      insertElementFromData(obj);
-    }
-  });
-
-  // Mover objeto
-  socket.on("moveObject", ({ id, x, y }) => {
-    const el = elementsMap.get(id);
-    if (el) {
-      el.style.left = x + "px";
-      el.style.top = y + "px";
-    }
-  });
-
-  // Eliminar objeto
-  socket.on("removeObject", (id) => {
-    const el = elementsMap.get(id);
-    if (el) {
-      el.remove();
-      elementsMap.delete(id);
-    }
-  });
-
-  // Modificar insertElement para que acepte un objeto con datos
-  function insertElementFromData(obj) {
-    const wrapper = document.createElement("div");
-    wrapper.className = "draggable";
-    wrapper.style.left = obj.x + "px";
-    wrapper.style.top = obj.y + "px";
-    wrapper.dataset.id = obj.id;
-
-    let mediaElement;
-    if (obj.type === "image") {
-      mediaElement = document.createElement("img");
-      mediaElement.src = obj.src;
-    } else if (obj.type === "video") {
-      mediaElement = document.createElement("video");
-      mediaElement.src = obj.src;
-      mediaElement.controls = true;
-      mediaElement.autoplay = false;
-    } else if (obj.type === "audio") {
-      mediaElement = document.createElement("audio");
-      mediaElement.src = obj.src;
-      mediaElement.controls = true;
-      mediaElement.autoplay = true;
-    } else if (obj.type === "iframe") {
-      mediaElement = document.createElement("iframe");
-      mediaElement.src = obj.src;
-      mediaElement.width = obj.width || 560;
-      mediaElement.height = obj.height || 315;
-      mediaElement.allowFullscreen = true;
-    }
-    wrapper.appendChild(mediaElement);
-
-    makeDraggable(wrapper);
-
-    dropZone.appendChild(wrapper);
-    elementsMap.set(obj.id, wrapper);
-
-    // Borrar con doble click
-    wrapper.addEventListener("dblclick", () => {
-      socket.emit("removeObject", obj.id);
-      wrapper.remove();
-      elementsMap.delete(obj.id);
-    });
-  }
-
-  // Cuando se inserta un nuevo elemento con interacción local (drop o paste),
-  // debes emitir createObject al servidor
-  function insertElement(mediaElement, x, y, isResizable = false) {
-    const id = generateId();
-    const type = mediaElement.tagName.toLowerCase();
-
-    const obj = {
-      id,
-      x,
-      y,
-      type: type === "iframe" ? "iframe" : type, // normalizar
-      src: mediaElement.src || mediaElement.currentSrc || mediaElement.srcObject || "",
-      width: mediaElement.width || null,
-      height: mediaElement.height || null,
-    };
-
-    insertElementFromData(obj);
-
-    socket.emit("createObject", obj);
-  }
-
-  // Modificar makeDraggable para emitir moveObject
-  function makeDraggable(el) {
-    let isDragging = false,
-      offsetX = 0,
-      offsetY = 0;
-
-    el.addEventListener("mousedown", (e) => {
-      isDragging = true;
-      offsetX = e.offsetX;
-      offsetY = e.offsetY;
-      el.style.zIndex = parseInt(el.style.zIndex || 10) + 1;
-    });
-
-    window.addEventListener("mousemove", (e) => {
-      if (isDragging) {
-        const x = e.clientX - offsetX;
-        const y = e.clientY - offsetY;
-        el.style.left = x + "px";
-        el.style.top = y + "px";
-
-        // Emitir movimiento
-        const id = el.dataset.id;
-        socket.emit("moveObject", { id, x, y });
+      // Generar un id simple (puedes usar UUID si quieres)
+      function generateId() {
+        return Math.random().toString(36).substr(2, 9);
       }
-    });
 
-    window.addEventListener("mouseup", () => (isDragging = false));
-  }
-</script>
+      // Estado local, map id -> elemento DOM
+      const elementsMap = new Map();
 
+      // Cargar objetos cuando un nuevo usuario se conecta
+      socket.on("loadObjects", (objs) => {
+        objs.forEach((obj) => {
+          insertElementFromData(obj);
+        });
+      });
+
+      // Crear objeto al recibir evento
+      socket.on("createObject", (obj) => {
+        if (!elementsMap.has(obj.id)) {
+          insertElementFromData(obj);
+        }
+      });
+
+      // Mover objeto
+      socket.on("moveObject", ({ id, x, y }) => {
+        const el = elementsMap.get(id);
+        if (el) {
+          el.style.left = x + "px";
+          el.style.top = y + "px";
+        }
+      });
+
+      // Eliminar objeto
+      socket.on("removeObject", (id) => {
+        const el = elementsMap.get(id);
+        if (el) {
+          el.remove();
+          elementsMap.delete(id);
+        }
+      });
+
+      // Reescalar objeto
+      socket.on("resize-element", ({ id, width, height }) => {
+        const el = document.querySelector(`.draggable[data-id="${id}"]`);
+        if (el) {
+          const media = el.querySelector("video, img, iframe");
+          if (media) {
+            media.style.width = `${width}px`;
+            media.style.height = `${height}px`;
+          }
+        }
+      });
+
+      dropZone.addEventListener("drop", (e) => {
+        e.preventDefault();
+        const file = e.dataTransfer.files[0];
+        if (!file) return;
+
+        const type = file.type;
+        const reader = new FileReader();
+
+        reader.onload = () => {
+          let element;
+          if (type.startsWith("image/")) {
+            element = document.createElement("img");
+            element.src = reader.result;
+            insertElement(element, cursorX, cursorY, true);
+          } else if (type.startsWith("video/")) {
+            element = document.createElement("video");
+            element.src = reader.result;
+            element.controls = true;
+            element.autoplay = false;
+            insertElement(element, cursorX, cursorY, true);
+          } else if (type.startsWith("audio/")) {
+            element = document.createElement("audio");
+            element.src = reader.result;
+            element.controls = true;
+            element.autoplay = true;
+            insertElement(element, cursorX, cursorY);
+          }
+        };
+        reader.readAsDataURL(file);
+      });
+
+      async function handleXVideoLink(url) {
+        try {
+          const apiUrl = url.replace("x.com", "api.vxtwitter.com");
+          const response = await fetch(apiUrl);
+          if (!response.ok) throw new Error("No se pudo acceder a vxtwitter");
+
+          const data = await response.json();
+          if (!data.mediaURLs || data.mediaURLs.length === 0) {
+            alert("No se encontró video en el tweet.");
+            return;
+          }
+
+          const videoURL = data.mediaURLs[0]; // Usa el primer video
+          const video = document.createElement("video");
+          video.src = videoURL;
+          video.controls = true;
+          video.autoplay = false;
+
+          insertElement(video, cursorX, cursorY, true);
+        } catch (err) {
+          alert("Error al procesar el video de X/Twitter.");
+          console.error(err);
+        }
+      }
+
+      window.addEventListener("paste", (e) => {
+        const clipboard = e.clipboardData;
+
+        if (clipboard.files.length > 0) {
+          const file = clipboard.files[0];
+          if (file.type.startsWith("image/")) {
+            const reader = new FileReader();
+            reader.onload = () => {
+              const img = document.createElement("img");
+              img.src = reader.result;
+              insertElement(img, cursorX, cursorY, true);
+            };
+            reader.readAsDataURL(file);
+            return;
+          }
+        }
+
+        const text = clipboard.getData("text");
+        if (!text || !text.includes("http")) return;
+
+        let element;
+        if (/https?:\/\/(x|twitter)\.com\/\w+\/status\/\d+/i.test(text)) {
+          handleXVideoLink(text);
+          return;
+        }
+
+        if (text.includes("youtube.com/watch?v=")) {
+          const videoId = new URL(text).searchParams.get("v");
+          const embedUrl = `https://www.youtube.com/embed/${videoId}`;
+          element = document.createElement("iframe");
+          element.src = embedUrl;
+          element.width = "560";
+          element.height = "315";
+          element.allow =
+            "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture";
+          element.allowFullscreen = true;
+          insertElement(element, cursorX, cursorY, true);
+        } else if (text.includes("youtube.com/shorts/")) {
+          const videoId = text.substring(30, text.length);
+          const embedUrl = `https://www.youtube.com/embed/${videoId}`;
+          element = document.createElement("iframe");
+          element.src = embedUrl;
+          element.width = "315";
+          element.height = "560";
+          element.allow =
+            "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture";
+          element.allowFullscreen = true;
+          insertElement(element, cursorX, cursorY, true);
+        } else if (text.includes(".mp4")) {
+          element = document.createElement("video");
+          element.src = text;
+          element.controls = true;
+          element.autoplay = false;
+          insertElement(element, cursorX, cursorY, true);
+        } else if (text.endsWith(".mp3")) {
+          element = document.createElement("audio");
+          element.src = text;
+          element.controls = true;
+          element.autoplay = true;
+          insertElement(element, cursorX, cursorY);
+        } else if (text.match(/\.(jpg|jpeg|png|gif|webp)$/i)) {
+          element = document.createElement("img");
+          element.src = text;
+          insertElement(element, cursorX, cursorY, true);
+        } else {
+          alert("Formato no soportado.");
+        }
+      });
+
+      // Modificar insertElement para que acepte un objeto con datos
+      function insertElementFromData(obj) {
+        const wrapper = document.createElement("div");
+        wrapper.className = "draggable";
+        wrapper.style.left = obj.x + "px";
+        wrapper.style.top = obj.y + "px";
+        wrapper.dataset.id = obj.id;
+
+        let mediaElement;
+        if (obj.type === "image") {
+          mediaElement = document.createElement("img");
+          mediaElement.src = obj.src;
+        } else if (obj.type === "video") {
+          mediaElement = document.createElement("video");
+          mediaElement.src = obj.src;
+          mediaElement.controls = true;
+          mediaElement.autoplay = false;
+        } else if (obj.type === "audio") {
+          mediaElement = document.createElement("audio");
+          mediaElement.src = obj.src;
+          mediaElement.controls = true;
+          mediaElement.autoplay = true;
+        } else if (obj.type === "iframe") {
+          mediaElement = document.createElement("iframe");
+          mediaElement.src = obj.src;
+          mediaElement.width = obj.width || 560;
+          mediaElement.height = obj.height || 315;
+          mediaElement.allowFullscreen = true;
+        }
+        wrapper.appendChild(mediaElement);
+
+        makeDraggable(wrapper);
+
+        dropZone.appendChild(wrapper);
+        elementsMap.set(obj.id, wrapper);
+      }
+
+      // Cuando se inserta un nuevo elemento con interacción local (drop o paste),
+      // debes emitir createObject al servidor
+      function insertElement(mediaElement, x, y, isResizable = false) {
+        const id = generateId();
+        const type = mediaElement.tagName.toLowerCase();
+
+        const obj = {
+          id,
+          x,
+          y,
+          type: type === "iframe" ? "iframe" : type, // normalizar
+          src:
+            mediaElement.src ||
+            mediaElement.currentSrc ||
+            mediaElement.srcObject ||
+            "",
+          width: mediaElement.width || null,
+          height: mediaElement.height || null,
+        };
+
+        const wrapper = document.createElement("div");
+        wrapper.className = "draggable";
+        wrapper.style.left = `${x}px`;
+        wrapper.style.top = `${y}px`;
+        wrapper.style.width =
+          mediaElement.tagName === "VIDEO" ||
+          mediaElement.tagName === "IFRAME" ||
+          mediaElement.tagName === "IMG"
+            ? "auto"
+            : "auto";
+        wrapper.style.height = "auto";
+        wrapper.appendChild(mediaElement);
+
+        makeDraggable(wrapper);
+        dropZone.appendChild(wrapper);
+
+        // Borrar con doble click
+        wrapper.addEventListener("dblclick", () => {
+          socket.emit("removeObject", obj.id);
+          wrapper.remove();
+          elementsMap.delete(obj.id);
+        });
+
+        if (isResizable) {
+          wrapper.addEventListener("wheel", (e) => {
+            e.preventDefault();
+            const scale = e.deltaY < 0 ? 1.1 : 0.9;
+
+            const currentWidth = mediaElement.offsetWidth;
+            const currentHeight = mediaElement.offsetHeight;
+
+            const newWidth = currentWidth * scale;
+            const newHeight = currentHeight * scale;
+
+            mediaElement.style.width = `${newWidth}px`;
+            mediaElement.style.height = `${newHeight}px`;
+
+            // Emitir el cambio de escala
+            socket.emit("resize-element", {
+              id: wrapper.dataset.id,
+              width: newWidth,
+              height: newHeight,
+            });
+          });
+        }
+
+        elementsMap.set(obj.id, wrapper);
+
+        socket.emit("createObject", obj);
+      }
+
+      // Modificar makeDraggable para emitir moveObject
+      function makeDraggable(el) {
+        let isDragging = false,
+          offsetX = 0,
+          offsetY = 0;
+
+        el.addEventListener("mousedown", (e) => {
+          isDragging = true;
+          offsetX = e.offsetX;
+          offsetY = e.offsetY;
+          el.style.zIndex = parseInt(el.style.zIndex || 10) + 1;
+        });
+
+        window.addEventListener("mousemove", (e) => {
+          if (isDragging) {
+            const x = e.clientX - offsetX;
+            const y = e.clientY - offsetY;
+            el.style.left = x + "px";
+            el.style.top = y + "px";
+
+            // Emitir movimiento
+            const id = el.dataset.id;
+            socket.emit("moveObject", { id, x, y });
+          }
+        });
+
+        window.addEventListener("mouseup", () => (isDragging = false));
+      }
+
+      window.addEventListener("keydown", (e) => {
+        if (e.key.toLowerCase() === "f") {
+          if (!document.fullscreenElement) {
+            document.documentElement.requestFullscreen();
+          } else {
+            document.exitFullscreen();
+          }
+        }
+      });
+    </script>
   </body>
 </html>

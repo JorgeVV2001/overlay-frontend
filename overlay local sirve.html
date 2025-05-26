@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Overlay Multimedia</title>
+    <style>
+      html,
+      body {
+        cursor: none;
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        background-color: #00d900;
+      }
+
+      #drop-zone {
+        width: 100vw;
+        height: 100vh;
+        position: relative;
+      }
+
+      .draggable {
+        border: 10px solid transparent;
+        border-radius: 16px;
+        padding: 4px;
+        background-color: transparent;
+        position: absolute;
+        z-index: 10;
+        user-select: none;
+      }
+
+      .custom-cursor {
+        position: absolute;
+        width: 5px;
+        height: 5px;
+        background-color: #00a800;
+        border-radius: 50%;
+        pointer-events: none;
+        z-index: 9999;
+      }
+
+      .aspect-guide {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 1280px;
+        height: 720px;
+        pointer-events: none;
+        z-index: 1;
+      }
+
+      .aspect-guide::after,
+      .aspect-guide::before {
+        content: "";
+        position: absolute;
+        background-color: black;
+      }
+
+      .aspect-guide::after {
+        /* Borde derecho */
+        top: 0;
+        right: 0;
+        width: 2px;
+        height: 100%;
+      }
+
+      .aspect-guide::before {
+        /* Borde inferior */
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        height: 2px;
+      }
+
+      video,
+      img,
+      audio,
+      iframe {
+        user-select: none;
+        display: block;
+        cursor: none;
+      }
+
+      img {
+        pointer-events: none; /* No necesitan clics */
+      }
+
+      video,
+      audio,
+      iframe {
+        pointer-events: auto; /* Sí permiten interacción */
+      }
+    </style>
+  </head>
+  <body>
+    <div class="aspect-guide"></div>
+    <div id="drop-zone"></div>
+    <div class="custom-cursor" id="customCursor"></div>
+
+    <script>
+      const dropZone = document.getElementById("drop-zone");
+      const cursor = document.getElementById("customCursor");
+      let cursorX = 0,
+        cursorY = 0;
+
+      dropZone.addEventListener("dragover", (e) => e.preventDefault());
+      dropZone.addEventListener("mousemove", (e) => {
+        const rect = dropZone.getBoundingClientRect();
+        cursorX = e.clientX - rect.left;
+        cursorY = e.clientY - rect.top;
+        cursor.style.left = `${e.clientX - 2}px`;
+        cursor.style.top = `${e.clientY - 2}px`;
+      });
+
+      dropZone.addEventListener("drop", (e) => {
+        e.preventDefault();
+        const file = e.dataTransfer.files[0];
+        if (!file) return;
+
+        const type = file.type;
+        const reader = new FileReader();
+
+        reader.onload = () => {
+          let element;
+          if (type.startsWith("image/")) {
+            element = document.createElement("img");
+            element.src = reader.result;
+            insertElement(element, cursorX, cursorY, true);
+          } else if (type.startsWith("video/")) {
+            element = document.createElement("video");
+            element.src = reader.result;
+            element.controls = true;
+            element.autoplay = false;
+            insertElement(element, cursorX, cursorY, true);
+          } else if (type.startsWith("audio/")) {
+            element = document.createElement("audio");
+            element.src = reader.result;
+            element.controls = true;
+            element.autoplay = true;
+            insertElement(element, cursorX, cursorY);
+          }
+        };
+        reader.readAsDataURL(file);
+      });
+
+      async function handleXVideoLink(url) {
+  try {
+    const apiUrl = url.replace("x.com", "api.vxtwitter.com");
+    const response = await fetch(apiUrl);
+    if (!response.ok) throw new Error("No se pudo acceder a vxtwitter");
+
+    const data = await response.json();
+    if (!data.mediaURLs || data.mediaURLs.length === 0) {
+      alert("No se encontró video en el tweet.");
+      return;
+    }
+
+    const videoURL = data.mediaURLs[0]; // Usa el primer video
+    const video = document.createElement("video");
+    video.src = videoURL;
+    video.controls = true;
+    video.autoplay = false;
+
+    insertElement(video, cursorX, cursorY, true);
+  } catch (err) {
+    alert("Error al procesar el video de X/Twitter.");
+    console.error(err);
+  }
+}
+
+      window.addEventListener("paste", (e) => {
+        const clipboard = e.clipboardData;
+
+        if (clipboard.files.length > 0) {
+          const file = clipboard.files[0];
+          if (file.type.startsWith("image/")) {
+            const reader = new FileReader();
+            reader.onload = () => {
+              const img = document.createElement("img");
+              img.src = reader.result;
+              insertElement(img, cursorX, cursorY, true);
+            };
+            reader.readAsDataURL(file);
+            return;
+          }
+        }
+
+        const text = clipboard.getData("text");
+        if (!text || !text.includes("http")) return;
+
+        let element;
+	if (/https?:\/\/(x|twitter)\.com\/\w+\/status\/\d+/i.test(text)) {
+  handleXVideoLink(text);
+  return;
+}
+
+        if (text.includes("youtube.com/watch?v=")) {
+          const videoId = new URL(text).searchParams.get("v");
+          const embedUrl = `https://www.youtube.com/embed/${videoId}`;
+          element = document.createElement("iframe");
+          element.src = embedUrl;
+          element.width = "560";
+          element.height = "315";
+          element.allow =
+            "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture";
+          element.allowFullscreen = true;
+          insertElement(element, cursorX, cursorY, true);
+          } else if (text.includes("youtube.com/shorts/")) {
+          const videoId = text.substring(30,text.length);
+          const embedUrl = `https://www.youtube.com/embed/${videoId}`;
+          element = document.createElement("iframe");
+          element.src = embedUrl;
+          element.width = "315";
+          element.height = "560";
+          element.allow =
+            "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture";
+          element.allowFullscreen = true;
+          insertElement(element, cursorX, cursorY, true);
+        } else if (text.includes(".mp4")) {
+          element = document.createElement("video");
+          element.src = text;
+          element.controls = true;
+          element.autoplay = false;
+          insertElement(element, cursorX, cursorY, true);
+        } else if (text.endsWith(".mp3")) {
+          element = document.createElement("audio");
+          element.src = text;
+          element.controls = true;
+          element.autoplay = true;
+          insertElement(element, cursorX, cursorY);
+        } else if (text.match(/\.(jpg|jpeg|png|gif|webp)$/i)) {
+          element = document.createElement("img");
+          element.src = text;
+          insertElement(element, cursorX, cursorY, true);
+        } else {
+          alert("Formato no soportado.");
+        }
+      });
+
+      function insertElement(mediaElement, x, y, isResizable = false) {
+        const wrapper = document.createElement("div");
+        wrapper.className = "draggable";
+        wrapper.style.left = `${x}px`;
+        wrapper.style.top = `${y}px`;
+        wrapper.style.width =
+          mediaElement.tagName === "VIDEO" ||
+          mediaElement.tagName === "IFRAME" ||
+          mediaElement.tagName === "IMG"
+            ? "auto"
+            : "auto";
+        wrapper.style.height = "auto";
+        wrapper.appendChild(mediaElement);
+
+        makeDraggable(wrapper);
+        dropZone.appendChild(wrapper);
+
+        wrapper.addEventListener("dblclick", () => wrapper.remove());
+
+        if (isResizable) {
+          wrapper.addEventListener("wheel", (e) => {
+            e.preventDefault();
+            const scale = e.deltaY < 0 ? 1.1 : 0.9;
+            //mediaElement.style.width = mediaElement.offsetWidth * scale + "px";
+            const currentWidth = mediaElement.offsetWidth;
+            const currentHeight = mediaElement.offsetHeight;
+
+            const newWidth = currentWidth * scale;
+            const newHeight = currentHeight * scale;
+
+            mediaElement.style.width = `${newWidth}px`;
+            mediaElement.style.height = `${newHeight}px`;
+          });
+        }
+      }
+
+      function makeDraggable(el) {
+        let isDragging = false,
+          offsetX = 0,
+          offsetY = 0;
+
+        el.addEventListener("mousedown", (e) => {
+          isDragging = true;
+          offsetX = e.offsetX;
+          offsetY = e.offsetY;
+          el.style.zIndex = parseInt(el.style.zIndex || 10) + 1;
+        });
+
+        window.addEventListener("mousemove", (e) => {
+          if (isDragging) {
+            el.style.left = `${e.clientX - offsetX}px`;
+            el.style.top = `${e.clientY - offsetY}px`;
+          }
+        });
+
+        window.addEventListener("mouseup", () => (isDragging = false));
+      }
+
+      window.addEventListener("keydown", (e) => {
+        if (e.key.toLowerCase() === "f") {
+          if (!document.fullscreenElement) {
+            document.documentElement.requestFullscreen();
+          } else {
+            document.exitFullscreen();
+          }
+        }
+      });
+    </script>
+  </body>
+</html>

@@ -96,7 +96,7 @@
     <div class="aspect-guide"></div>
     <div id="drop-zone"></div>
     <div class="custom-cursor" id="customCursor"></div>
-    <script src="https://cdn.socket.io/4.8.1/socket.io.min.js"></script>
+    <script src="https://overlay-backend.fly.dev/socket.io/socket.io.js"></script>
     <script>
       if (!window.YT) {
         const tag = document.createElement("script");
@@ -122,7 +122,7 @@
         cursor.style.top = `${e.clientY - 2}px`;
       });
 
-      const socket = io("http://2.tcp.ngrok.io:17659");
+      const socket = io("https://overlay-backend.fly.dev");
 
       // Generar un id simple (puedes usar UUID si quieres)
       function generateId() {

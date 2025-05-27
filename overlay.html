@@ -96,8 +96,18 @@
     <div class="aspect-guide"></div>
     <div id="drop-zone"></div>
     <div class="custom-cursor" id="customCursor"></div>
-    <script src="https://bc14-2800-200-fdc0-c73-88c9-679f-6c22-8ee3.ngrok-free.app/socket.io/socket.io.js"></script>
+    <script src="http://2.tcp.ngrok.io:17962/socket.io/socket.io.js"></script>
     <script>
+      if (!window.YT) {
+        const tag = document.createElement("script");
+        tag.src = "https://www.youtube.com/iframe_api";
+        document.head.appendChild(tag);
+        window.onYouTubeIframeAPIReady = () => {
+          console.log("YouTube API lista");
+          youtubeApiReady = true;
+        };
+      }
+
       // cursor custom
       const dropZone = document.getElementById("drop-zone");
       const cursor = document.getElementById("customCursor");
@@ -112,9 +122,7 @@
         cursor.style.top = `${e.clientY - 2}px`;
       });
 
-      const socket = io(
-        "https://bc14-2800-200-fdc0-c73-88c9-679f-6c22-8ee3.ngrok-free.app"
-      );
+      const socket = io("http://2.tcp.ngrok.io:17962");
 
       // Generar un id simple (puedes usar UUID si quieres)
       function generateId() {
@@ -158,13 +166,51 @@
 
       // Reescalar objeto
       socket.on("resize-element", ({ id, width, height }) => {
-        const el = document.querySelector(`.draggable[data-id="${id}"]`);
+        const el = elementsMap.get(id);
         if (el) {
           const media = el.querySelector("video, img, iframe");
           if (media) {
             media.style.width = `${width}px`;
             media.style.height = `${height}px`;
           }
+        }
+      });
+
+      socket.on("media-action", ({ id, action, currentTime }) => {
+        const wrapper = elementsMap.get(id);
+        if (!wrapper) return;
+
+        const media = wrapper.querySelector("video, audio, iframe");
+        if (!media) return;
+        if (
+          media instanceof HTMLVideoElement ||
+          media instanceof HTMLAudioElement
+        ) {
+          if (action === "play") media.play();
+          if (action === "pause") media.pause();
+          // Activar lock para evitar rebote
+          if (action === "seek" && currentTime != null) {
+            mediaSyncLocks.set(id, true);
+            media.currentTime = currentTime;
+          }
+
+          // Desactivar lock poco después para permitir futuras acciones
+          setTimeout(() => {
+            mediaSyncLocks.set(id, false);
+          }, 100); // 100ms suele ser suficiente
+        } else if (media.tagName === "IFRAME" && ytPlayers[id]) {
+          const player = ytPlayers[id];
+          if (action === "play") player.playVideo();
+          else if (action === "pause") player.pauseVideo();
+          else if (action === "seek" && currentTime != null) {
+            ytSuppress[id] = true;
+            player.seekTo(currentTime, true);
+            player.playVideo();
+          }
+
+          setTimeout(() => {
+            ytSuppress[id] = false;
+          }, 500);
         }
       });
 
@@ -192,7 +238,7 @@
             element = document.createElement("audio");
             element.src = reader.result;
             element.controls = true;
-            element.autoplay = true;
+            element.autoplay = false;
             insertElement(element, cursorX, cursorY);
           }
         };
@@ -211,7 +257,7 @@
             return;
           }
 
-          const videoURL = data.mediaURLs[0]; // Usa el primer video
+          const videoURL = data.mediaURLs[0]; // Usa el primer video¿'
           const video = document.createElement("video");
           video.src = videoURL;
           video.controls = true;
@@ -222,6 +268,39 @@
           alert("Error al procesar el video de X/Twitter.");
           console.error(err);
         }
+      }
+
+      const ytPlayers = {};
+      const ytSuppress = {};
+
+      function setupYouTubeSync(iframe, id) {
+        if (!window.YT || !YT.Player) {
+          setTimeout(() => setupYouTubeSync(iframe, id), 100);
+          return;
+        }
+
+        ytPlayers[id] = new YT.Player(iframe, {
+          events: {
+            onStateChange: (event) => {
+              if (ytSuppress[id]) return;
+              const player = event.target;
+              const currentTime = player.getCurrentTime();
+              const state = event.data;
+
+              if (state === YT.PlayerState.PLAYING) {
+                socket.emit("media-action", { id, action: "play" });
+              } else if (state === YT.PlayerState.PAUSED) {
+                socket.emit("media-action", { id, action: "pause" });
+              } else if (state === YT.PlayerState.BUFFERING) {
+                socket.emit("media-action", {
+                  id,
+                  action: "seek",
+                  currentTime,
+                });
+              }
+            },
+          },
+        });
       }
 
       window.addEventListener("paste", (e) => {
@@ -252,7 +331,7 @@
 
         if (text.includes("youtube.com/watch?v=")) {
           const videoId = new URL(text).searchParams.get("v");
-          const embedUrl = `https://www.youtube.com/embed/${videoId}`;
+          const embedUrl = `https://www.youtube.com/embed/${videoId}?enablejsapi=1&autoplay=1`;
           element = document.createElement("iframe");
           element.src = embedUrl;
           element.width = "560";
@@ -263,7 +342,7 @@
           insertElement(element, cursorX, cursorY, true);
         } else if (text.includes("youtube.com/shorts/")) {
           const videoId = text.substring(30, text.length);
-          const embedUrl = `https://www.youtube.com/embed/${videoId}`;
+          const embedUrl = `https://www.youtube.com/embed/${videoId}?enablejsapi=1&autoplay=1`;
           element = document.createElement("iframe");
           element.src = embedUrl;
           element.width = "315";
@@ -293,6 +372,29 @@
         }
       });
 
+      const mediaSyncLocks = new Map(); // ID => boolean
+
+      function setupMediaSync(mediaElement, id) {
+        mediaElement.addEventListener("play", () => {
+          if (mediaSyncLocks.get(id)) return;
+          socket.emit("media-action", { id, action: "play" });
+        });
+
+        mediaElement.addEventListener("pause", () => {
+          if (mediaSyncLocks.get(id)) return;
+          socket.emit("media-action", { id, action: "pause" });
+        });
+
+        mediaElement.addEventListener("seeked", () => {
+          if (mediaSyncLocks.get(id)) return;
+          socket.emit("media-action", {
+            id,
+            action: "seek",
+            currentTime: mediaElement.currentTime,
+          });
+        });
+      }
+
       // Modificar insertElement para que acepte un objeto con datos
       function insertElementFromData(obj) {
         const wrapper = document.createElement("div");
@@ -302,7 +404,7 @@
         wrapper.dataset.id = obj.id;
 
         let mediaElement;
-        if (obj.type === "image") {
+        if (obj.type === "img") {
           mediaElement = document.createElement("img");
           mediaElement.src = obj.src;
         } else if (obj.type === "video") {
@@ -314,20 +416,37 @@
           mediaElement = document.createElement("audio");
           mediaElement.src = obj.src;
           mediaElement.controls = true;
-          mediaElement.autoplay = true;
+          mediaElement.autoplay = false;
         } else if (obj.type === "iframe") {
           mediaElement = document.createElement("iframe");
           mediaElement.src = obj.src;
           mediaElement.width = obj.width || 560;
           mediaElement.height = obj.height || 315;
+          mediaElement.allow =
+            "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture";
           mediaElement.allowFullscreen = true;
+          ytPlayers[obj.id] = new YT.Player(mediaElement, {
+            playerVars: { autoplay: 1, controls: 0 },
+          });
         }
+        //if (
+        //  mediaElement.tagName.toLowerCase() === "video" ||
+        //  mediaElement.tagName.toLowerCase() === "audio"
+        //) {
+        //  setupMediaSync(mediaElement, obj.id);
+        //}
+
         wrapper.appendChild(mediaElement);
+        elementsMap.set(obj.id, wrapper);
 
         makeDraggable(wrapper);
+        wrapper.addEventListener("dblclick", () => {
+          socket.emit("removeObject", obj.id);
+          wrapper.remove();
+          elementsMap.delete(obj.id);
+        });
 
         dropZone.appendChild(wrapper);
-        elementsMap.set(obj.id, wrapper);
       }
 
       // Cuando se inserta un nuevo elemento con interacción local (drop o paste),
@@ -361,10 +480,24 @@
             ? "auto"
             : "auto";
         wrapper.style.height = "auto";
+        wrapper.dataset.id = obj.id;
         wrapper.appendChild(mediaElement);
+        socket.emit("createObject", obj);
+        elementsMap.set(obj.id, wrapper);
 
         makeDraggable(wrapper);
         dropZone.appendChild(wrapper);
+        if (
+          mediaElement.tagName.toLowerCase() === "video" ||
+          mediaElement.tagName.toLowerCase() === "audio"
+        ) {
+          setupMediaSync(mediaElement, obj.id);
+        }
+
+        const isYouTube = mediaElement.tagName.toLowerCase() === "iframe";
+        if (isYouTube) {
+          setupYouTubeSync(mediaElement, obj.id);
+        }
 
         // Borrar con doble click
         wrapper.addEventListener("dblclick", () => {
@@ -395,10 +528,6 @@
             });
           });
         }
-
-        elementsMap.set(obj.id, wrapper);
-
-        socket.emit("createObject", obj);
       }
 
       // Modificar makeDraggable para emitir moveObject

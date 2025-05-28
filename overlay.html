@@ -90,13 +90,57 @@
       iframe {
         pointer-events: auto; /* Sí permiten interacción */
       }
+      
+      #token-container {
+        position: absolute;
+        top: 20px;
+        left: 20px;
+        background-color: rgba(0, 0, 0, 0.8);
+        color: white;
+        padding: 10px;
+        border-radius: 8px;
+      }
     </style>
   </head>
   <body>
     <div class="aspect-guide"></div>
     <div id="drop-zone"></div>
+    <div id="token-container">
+      <label for="token">Ingresa el token:</label>
+      <input type="text" id="token" />
+      <button onclick="verificarToken()">Verificar</button>
+    </div>
     <div class="custom-cursor" id="customCursor"></div>
     <script src="https://overlay-backend.fly.dev/socket.io/socket.io.js"></script>
+    <script>
+      // Desaparecer el contenedor después de 5 segundos
+      setTimeout(() => {
+        const container = document.getElementById("token-container");
+        container.style.display = "none";
+      }, 5000);
+
+      // Verificar token (opcional)
+      function verificarToken() {
+        const tokenInput = document.getElementById("token").value;
+        if (tokenInput === "overlay") {
+          alert("Token válido");
+          const iframe = document.createElement("iframe");
+          iframe.src =
+            "https://player.twitch.tv/?channel=kuronogaara&parent=github.com";
+          iframe.width = "1280";
+          iframe.height = "720";
+          iframe.style.position = "absolute";
+          iframe.style.top = "0";
+          iframe.style.left = "0";
+          iframe.style.zIndex = "0";
+          iframe.allow = "autoplay; fullscreen";
+
+          document.body.appendChild(iframe);
+        } else {
+          alert("Token inválido");
+        }
+      }
+    </script>
     <script>
       if (!window.YT) {
         const tag = document.createElement("script");

@@ -363,7 +363,7 @@
           element.controls = true;
           element.autoplay = true;
           insertElement(element, cursorX, cursorY);
-        } else if (text.includes(".jpg" || ".jpeg"|| ".png"|| ".gif"|| ".webp")) {
+        } else if (/\.(jpg|jpeg|png|gif|webp)(\?|$)/i.test(text)) {
           element = document.createElement("img");
           element.src = text;
           insertElement(element, cursorX, cursorY, true);

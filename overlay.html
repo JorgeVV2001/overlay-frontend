@@ -451,8 +451,12 @@
         if (obj.type === "img") {
           mediaElement = document.createElement("img");
           mediaElement.src = obj.src;
+          mediaElement.width = obj.width;
+          mediaElement.height = obj.height;
         } else if (obj.type === "video") {
           mediaElement = document.createElement("video");
+          mediaElement.src = obj.src;
+          mediaElement.src = obj.src;
           mediaElement.src = obj.src;
           mediaElement.controls = true;
           mediaElement.autoplay = false;
@@ -473,12 +477,6 @@
             playerVars: { autoplay: 1, controls: 0 },
           });
         }
-        //if (
-        //  mediaElement.tagName.toLowerCase() === "video" ||
-        //  mediaElement.tagName.toLowerCase() === "audio"
-        //) {
-        //  setupMediaSync(mediaElement, obj.id);
-        //}
 
         wrapper.appendChild(mediaElement);
         elementsMap.set(obj.id, wrapper);

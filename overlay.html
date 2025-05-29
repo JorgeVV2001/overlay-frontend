@@ -192,10 +192,12 @@
 
       // Mover objeto
       socket.on("moveObject", ({ id, x, y }) => {
-        const el = elementsMap.get(id);
-        if (el) {
-          el.style.left = x + "px";
-          el.style.top = y + "px";
+        if (!localElement.has(id)) {
+          const el = elementsMap.get(id);
+          if (el) {
+            el.style.left = x + "px";
+            el.style.top = y + "px";
+          }
         }
       });
 
@@ -210,12 +212,14 @@
 
       // Reescalar objeto
       socket.on("resize-element", ({ id, width, height }) => {
-        const el = elementsMap.get(id);
-        if (el) {
-          const media = el.querySelector("video, img, iframe");
-          if (media) {
-            media.style.width = `${width}px`;
-            media.style.height = `${height}px`;
+        if (!localElement.has(id)) {
+          const el = elementsMap.get(id);
+          if (el) {
+            const media = el.querySelector("video, img, iframe");
+            if (media) {
+              media.style.width = `${width}px`;
+              media.style.height = `${height}px`;
+            }
           }
         }
       });
@@ -519,6 +523,7 @@
 
       // Cuando se inserta un nuevo elemento con interacción local (drop o paste),
       // debes emitir createObject al servidor
+      const localElement = new Map();
       function insertElement(mediaElement, x, y, isResizable = false) {
         const id = generateId();
         const type = mediaElement.tagName.toLowerCase();
@@ -595,6 +600,7 @@
               height: newHeight,
             });
           });
+          localElement.set(obj.id, isResizable);
         }
       }
 

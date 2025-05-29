@@ -303,10 +303,12 @@
 
           const videoURL = data.mediaURLs[0]; // Usa el primer video¿'
           const video = document.createElement("video");
+          const mediaData = data.media_extended?.[0];
           video.src = videoURL;
           video.controls = true;
           video.autoplay = false;
-          video.width = 540px;
+          video.width = mediaData.size.width;
+          video.height = mediaData.size.height;
 
           insertElement(video, cursorX, cursorY, true);
         } catch (err) {

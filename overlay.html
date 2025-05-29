@@ -507,8 +507,8 @@
             mediaElement.currentSrc ||
             mediaElement.srcObject ||
             "",
-          width: mediaElement.width || null,
-          height: mediaElement.height || null,
+          width: mediaElement.width || auto,
+          height: mediaElement.height || auto,
         };
 
         const wrapper = document.createElement("div");

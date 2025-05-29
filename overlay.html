@@ -454,13 +454,13 @@
         if (obj.type === "img") {
           mediaElement = document.createElement("img");
           mediaElement.src = obj.src;
-          mediaElement.width = obj.width || auto;
-          mediaElement.height = obj.height || auto;
+          mediaElement.width = obj.width;
+          mediaElement.height = obj.height;
         } else if (obj.type === "video") {
           mediaElement = document.createElement("video");
           mediaElement.src = obj.src;
-          mediaElement.width = obj.width || auto;
-          mediaElement.height = obj.height || auto;
+          mediaElement.width = obj.width;
+          mediaElement.height = obj.height;
           mediaElement.controls = true;
           mediaElement.autoplay = false;
         } else if (obj.type === "audio") {
@@ -510,8 +510,8 @@
             mediaElement.currentSrc ||
             mediaElement.srcObject ||
             "",
-          width: mediaElement.width || auto,
-          height: mediaElement.height || auto,
+          width: mediaElement.width || null,
+          height: mediaElement.height || null,
         };
 
         const wrapper = document.createElement("div");

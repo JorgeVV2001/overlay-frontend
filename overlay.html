@@ -411,9 +411,19 @@
           element.autoplay = true;
           insertElement(element, cursorX, cursorY);
         } else if (/\.(jpg|jpeg|png|gif|webp|avif)(\?|$)/i.test(text)) {
-          element = document.createElement("img");
-          element.src = text;
-          insertElement(element, cursorX, cursorY, true);
+          const img = new Image();
+          img.onload = function () {
+            const element = document.createElement("img");
+            element.src = text;
+            element.width = img.width;
+            element.height = img.height;
+            insertElement(element, cursorX, cursorY, true);
+          };
+          img.onerror = function () {
+            console.error("No se pudo cargar la imagen:", text);
+          };
+          //img.crossOrigin = "anonymous"; // Solo si el servidor lo permite
+          img.src = text;
         } else {
           alert("Formato no soportado.");
         }

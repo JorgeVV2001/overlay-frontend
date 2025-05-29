@@ -451,13 +451,13 @@
         if (obj.type === "img") {
           mediaElement = document.createElement("img");
           mediaElement.src = obj.src;
-          mediaElement.width = obj.width;
-          mediaElement.height = obj.height;
+          mediaElement.width = obj.width || auto;
+          mediaElement.height = obj.height || auto;
         } else if (obj.type === "video") {
           mediaElement = document.createElement("video");
           mediaElement.src = obj.src;
-          mediaElement.src = obj.src;
-          mediaElement.src = obj.src;
+          mediaElement.width = obj.width || auto;
+          mediaElement.height = obj.height || auto;
           mediaElement.controls = true;
           mediaElement.autoplay = false;
         } else if (obj.type === "audio") {

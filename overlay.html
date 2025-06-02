@@ -111,7 +111,7 @@
       <button onclick="verificarToken()">Verificar</button>
     </div>
     <div class="custom-cursor" id="customCursor"></div>
-    <script src="https://overlay-backend.fly.dev/socket.io/socket.io.js"></script>
+    <script src="https://overlay-backend-c3lc.onrender.com/socket.io/socket.io.js"></script>
     <script>
       // Desaparecer el contenedor después de 5 segundos
       setTimeout(() => {
@@ -166,7 +166,7 @@
         cursor.style.top = `${e.clientY - 2}px`;
       });
 
-      const socket = io("https://overlay-backend.fly.dev");
+      const socket = io("https://overlay-backend-c3lc.onrender.com");
 
       // Generar un id simple (puedes usar UUID si quieres)
       function generateId() {

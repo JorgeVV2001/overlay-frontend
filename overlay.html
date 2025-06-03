@@ -620,8 +620,9 @@
 
         el.addEventListener("mousedown", (e) => {
           isDragging = true;
-          offsetX = e.offsetX;
-          offsetY = e.offsetY;
+          const rect = el.getBoundingClientRect();
+          offsetX = e.clientX - rect.left;
+          offsetY = e.clientY - rect.top;
           el.style.zIndex = parseInt(el.style.zIndex || 10) + 1;
         });
 

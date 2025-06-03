@@ -305,16 +305,24 @@
             return;
           }
 
-          const videoURL = data.mediaURLs[0]; // Usa el primer video¿'
-          const video = document.createElement("video");
-          const mediaData = data.media_extended?.[0];
-          video.src = videoURL;
-          video.controls = true;
-          video.autoplay = false;
-          video.width = mediaData.size.width;
-          video.height = mediaData.size.height;
-
-          insertElement(video, cursorX, cursorY, true);
+          const twtMediaURL = data.mediaURLs[0]; // Usa el primer video¿'
+          if (/\.(jpg|jpeg|png|gif|webp|avif)(\?|$)/i.test(twtMediaURL)) {
+            const img = document.createElement("img");
+            const mediaData = data.media_extended?.[0];
+            img.src = twtMediaURL;
+            img.width = mediaData.size.width;
+            img.height = mediaData.size.height;
+            insertElement(img, cursorX, cursorY, true);
+          } else {
+            const video = document.createElement("video");
+            const mediaData = data.media_extended?.[0];
+            video.src = twtMediaURL;
+            video.controls = true;
+            video.autoplay = false;
+            video.width = mediaData.size.width;
+            video.height = mediaData.size.height;
+            insertElement(video, cursorX, cursorY, true);
+          }
         } catch (err) {
           alert("Error al procesar el video de X/Twitter.");
           console.error(err);
